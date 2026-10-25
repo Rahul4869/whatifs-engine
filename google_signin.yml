@@ -1,0 +1,22 @@
+name: Google Sign-in (one time)
+on:
+  workflow_dispatch:
+    inputs:
+      pasted_address:
+        description: "Leave EMPTY the first time. Second time: paste the full address from the page that failed to load."
+        required: false
+jobs:
+  signin:
+    runs-on: ubuntu-latest
+    env:
+      G_CLIENT_ID: ${{ secrets.G_CLIENT_ID }}
+      G_CLIENT_KEY: ${{ secrets.G_CLIENT_KEY }}
+      OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+      PASTED: ${{ github.event.inputs.pasted_address }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -q requests
+      - run: python tools/google_signin.py "$PASTED"

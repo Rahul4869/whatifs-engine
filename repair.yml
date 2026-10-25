@@ -1,0 +1,39 @@
+name: Repair Bot
+on:
+  workflow_run:
+    workflows: [Pipeline, Setup, Learning Loop, Trend Scout, Monthly Brief]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+jobs:
+  repair:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_KEY }}
+      GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      WI_WORK: rh
+      MAX_REPAIRS: "3"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update -y -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: pip install -q numpy opencv-python-headless pillow soundfile requests
+      - name: Get the error
+        run: |
+          gh run download ${{ github.event.workflow_run.id }} --repo ${{ github.repository }} --dir err || true
+          f=$(find err -name last_error.txt | head -1)
+          if [ -z "$f" ]; then gh run view ${{ github.event.workflow_run.id }} --repo ${{ github.repository }} --log-failed | tail -200 > last_error.txt; else cp "$f" last_error.txt; fi
+      - name: Skip non-code failures
+        id: k
+        run: |
+          if grep -qiE "credit is empty|images failed|quota|401|403|429|Google sign-in failed|timed out|policy risk" last_error.txt; then echo "skip=1" >> $GITHUB_OUTPUT; fi
+      - name: Repair with Claude
+        if: steps.k.outputs.skip != '1'
+        run: python tools/repair.py

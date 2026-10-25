@@ -1,0 +1,24 @@
+name: Checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  guard_and_rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update -y -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: pip install -q numpy opencv-python-headless pillow soundfile requests
+      - name: Plan Guard
+        run: python tools/plan_guard.py
+      - name: Free rehearsal (fake AI, fake images, full pipeline)
+        env:
+          WI_FAKE: "1"
+          WI_SMALL: "1"
+          WI_WORK: rh
+        run: python -m whatifs.cli rehearsal

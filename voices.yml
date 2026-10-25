@@ -1,0 +1,48 @@
+name: Voice Lab
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      G_CLIENT_ID: ${{ secrets.G_CLIENT_ID }}
+      G_CLIENT_KEY: ${{ secrets.G_CLIENT_KEY }}
+      G_REFRESH: ${{ secrets.G_REFRESH }}
+      ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_KEY }}
+      GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+      FAL_KEY: ${{ secrets.FAL_KEY }}
+      PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+      META_PAGE_KEY: ${{ secrets.META_PAGE_KEY }}
+      OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Tools
+        run: |
+          sudo apt-get update -y -qq && sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core > /dev/null
+          mkdir -p fonts
+          curl -sfL -o fonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true
+          curl -sfL -o fonts/Inter-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz,wght%5D.ttf" || true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: models-v1
+      - name: Python packages
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q -r requirements.txt
+      - run: python -m whatifs.cli voices
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voice_samples
+          path: voice_samples/
